@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tileset Creator</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        /* 布局 */
+        .main-container { display: flex; gap: 50px; margin-top: 30px; }
+        .section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+
+        /* 1. 颜色选择器 */
+        .color-palette { display: flex; gap: 10px; margin-bottom: 15px; }
+        .color-swatch { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.2s; }
+        .color-swatch.active { border-color: #333; transform: scale(1.1); }
+
+        /* 2. 编辑器 (大瓦片) */
+        .editor-box { display: flex; flex-direction: column; align-items: center; }
+        .large-tile {
+            width: 150px; height: 150px; position: relative; margin: 20px 0;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        /* 三角形绘制 - 可点击区域 */
+        .quadrant { position: absolute; width: 0; height: 0; border-style: solid; cursor: crosshair; }
+        
+        /* 北 (Top) */
+        .q-n { top: 0; left: 0; border-width: 75px 75px 0 75px; border-color: #ddd transparent transparent transparent; }
+        .q-n:hover { filter: brightness(0.9); }
+        /* 南 (Bottom) */
+        .q-s { bottom: 0; left: 0; border-width: 0 75px 75px 75px; border-color: transparent transparent #ddd transparent; }
+        /* 东 (Right) */
+        .q-e { top: 0; right: 0; border-width: 75px 75px 75px 0; border-color: transparent #ddd transparent transparent; }
+        /* 西 (Left) */
+        .q-w { top: 0; left: 0; border-width: 75px 0 75px 75px; border-color: transparent transparent transparent #ddd; }
+
+        button { padding: 10px 20px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #555; }
+
+        /* 3. 状态指示灯 */
+        .indicator-box { 
+            width: 300px; padding: 20px; text-align: center; margin-top: 20px; 
+            background: #eee; border-radius: 8px; font-weight: bold; color: #555; transition: 0.3s;
+        }
+        .status-success { background-color: #4ecdc4; color: white; } /* 绿色 */
+        .status-fail { background-color: #ff6b6b; color: white; }    /* 红色 */
+
+        /* 4. 已添加列表 */
+        .tile-list { display: grid; grid-template-columns: repeat(3, 60px); gap: 10px; margin-top: 15px; }
+        .mini-tile-wrapper { position: relative; }
+        .mini-tile { width: 60px; height: 60px; position: relative; }
+        .mini-quad { position: absolute; width: 0; height: 0; border-style: solid; border-width: 30px; }
+        
+        .delete-btn { 
+            position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; 
+            background: red; color: white; border-radius: 50%; text-align: center; 
+            line-height: 20px; font-size: 12px; cursor: pointer; display: none; 
+        }
+        .mini-tile-wrapper:hover .delete-btn { display: block; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Tileset Designer</h1>
+    <p>Design tiles to tile a <b>10x10</b> square.</p>
+
+    <div id="statusIndicator" class="indicator-box">
+        Not enough tiles / Cannot tile 10x10
+    </div>
+
+    <div class="main-container">
+        
+        <div class="section editor-box">
+            <h3>1. Pick Color</h3>
+            <div class="color-palette" id="palette"></div>
+            
+            <h3>2. Paint Tile</h3>
+            <div class="large-tile" id="editorTile">
+                <div class="quadrant q-n" id="edit-n" onclick="paint('n')"></div>
+                <div class="quadrant q-e" id="edit-e" onclick="paint('e')"></div>
+                <div class="quadrant q-s" id="edit-s" onclick="paint('s')"></div>
+                <div class="quadrant q-w" id="edit-w" onclick="paint('w')"></div>
+            </div>
+
+            <button onclick="addTile()">Add Tile to Collection</button>
+        </div>
+
+        <div class="section">
+            <h3>3. Your Tileset</h3>
+            <div id="tileList" class="tile-list">
+                </div>
+        </div>
+    </div>
+
+
+
+  {{ colors|json_script:"colors-data" }}
+
+<script>
+    const el = document.getElementById('colors-data');
+  console.log("colors-data tag:", el);
+  console.log("colors-data textContent:", el?.textContent);
+  const parsed = JSON.parse(el?.textContent ?? 'null');
+  console.log("parsed typeof:", typeof parsed, "parsed:", parsed, "isArray:", Array.isArray(parsed));
+
+const colors = JSON.parse(document.getElementById('colors-data').textContent);
+
+  // 1) Global state (must exist BEFORE any click)
+  let currentDraft = { n: 0, e: 0, s: 0, w: 0 };
+  let myTileset = [];
+
+  // 2) Pick default color safely
+  const defaultColor = (Array.isArray(colors) ? (colors.find(c => c.id === 1) || colors[0]) : null) || { id: 0, hex: '#cccccc' };
+  let currentColorHex = defaultColor.hex;
+  let currentColorId  = defaultColor.id;
+
+  // 3) Functions
+  function init() {
+    const p = document.getElementById('palette');
+    if (!p) return;
+
+    p.innerHTML = '';
+    colors.forEach(c => {
+      const div = document.createElement('div');
+      div.className = 'color-swatch';
+      div.style.backgroundColor = c.hex;
+      if (c.id === currentColorId) div.classList.add('active');
+      div.onclick = () => {
+        currentColorHex = c.hex;
+        currentColorId = c.id;
+        document.querySelectorAll('.color-swatch').forEach(el => el.classList.remove('active'));
+        div.classList.add('active');
+      };
+      p.appendChild(div);
+    });
+
+    updateEditorVisuals();
+  }
+
+  function paint(dir) {
+    currentDraft[dir] = currentColorId;
+    updateEditorVisuals();
+  }
+
+  function updateEditorVisuals() {
+    const getHex = (id) => (colors.find(c => c.id === id)?.hex) || '#cccccc';
+
+    const n = document.getElementById('edit-n');
+    const e = document.getElementById('edit-e');
+    const s = document.getElementById('edit-s');
+    const w = document.getElementById('edit-w');
+
+    if (n) n.style.borderTopColor = getHex(currentDraft.n);
+    if (e) e.style.borderRightColor = getHex(currentDraft.e);
+    if (s) s.style.borderBottomColor = getHex(currentDraft.s);
+    if (w) w.style.borderLeftColor = getHex(currentDraft.w);
+  }
+
+  function addTile() {
+    myTileset.push({ ...currentDraft });
+    renderList();
+    checkFeasibility();
+  }
+
+  function removeTile(index) {
+    myTileset.splice(index, 1);
+    renderList();
+    checkFeasibility();
+  }
+
+  function renderList() {
+    const container = document.getElementById('tileList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const getHex = (id) => (colors.find(c => c.id === id)?.hex) || '#cccccc';
+
+    myTileset.forEach((tile, index) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mini-tile-wrapper';
+
+      wrapper.innerHTML = `
+        <div class="mini-tile">
+          <div class="mini-quad" style="top:0;left:0; border-width:30px 30px 0 30px; border-color: ${getHex(tile.n)} transparent transparent transparent;"></div>
+          <div class="mini-quad" style="top:0;right:0; border-width:30px 30px 30px 0; border-color: transparent ${getHex(tile.e)} transparent transparent;"></div>
+          <div class="mini-quad" style="bottom:0;left:0; border-width:0 30px 30px 30px; border-color: transparent transparent ${getHex(tile.s)} transparent;"></div>
+          <div class="mini-quad" style="top:0;left:0; border-width:30px 0 30px 30px; border-color: transparent transparent transparent ${getHex(tile.w)};"></div>
+        </div>
+        <div class="delete-btn" onclick="removeTile(${index})">×</div>
+      `;
+      container.appendChild(wrapper);
+    });
+  }
+
+  async function checkFeasibility() {
+    const indicator = document.getElementById('statusIndicator');
+    if (!indicator) return;
+
+    if (myTileset.length === 0) {
+      indicator.className = 'indicator-box';
+      indicator.innerText = "Add some tiles to start checking...";
+      return;
+    }
+
+    indicator.innerText = "Checking...";
+    indicator.className = 'indicator-box';
+
+    try {
+      const response = await fetch('/visualizer/api/check/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ tiles: myTileset })
+      });
+
+      const data = await response.json();
+      if (data.can_tile) {
+        indicator.className = 'indicator-box status-success';
+        indicator.innerText = "SUCCESS! Can tile 10x10 area.";
+      } else {
+        indicator.className = 'indicator-box status-fail';
+        indicator.innerText = "Cannot tile 10x10 area yet.";
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  }
+
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  // 4) Expose functions for inline onclick="..."
+  window.paint = paint;
+  window.addTile = addTile;
+  window.removeTile = removeTile;
+
+  // 5) Init after DOM is ready
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
