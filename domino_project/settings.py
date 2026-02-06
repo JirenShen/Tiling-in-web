@@ -27,7 +27,7 @@ SECRET_KEY = 'django-insecure-q%q+y1d_6jow%%0^*3#)-m5h@pcxcguxnh-qgnyrqmr8&@x8c#
 DEBUG = True
 
 
-ALLOWED_HOSTS = [' https://git.heroku.com/domino-tile.git']
+ALLOWED_HOSTS = ['https://domino-tile.herokuapp.com']
 
 
 # Application definition
