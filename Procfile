@@ -1,0 +1,1 @@
+web: gunicorn domino_project.wsgi
