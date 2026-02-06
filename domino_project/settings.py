@@ -27,7 +27,18 @@ SECRET_KEY = 'django-insecure-q%q+y1d_6jow%%0^*3#)-m5h@pcxcguxnh-qgnyrqmr8&@x8c#
 DEBUG = True
 
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = [
+    "jiren-domino-tile-f8089103e4af.herokuapp.com",
+    "localhost",
+    "127.0.0.1",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://jiren-domino-tile-f8089103e4af.herokuapp.com",
+]
+
+# 关键：让 Django 通过 Heroku 的反代头判断这是 https
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
