@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-q%q+y1d_6jow%%0^*3#)-m5h@pcxcguxnh-qgnyrqmr8&@x8c#
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = ['quiet-island-57500-37aace510778.herokuapp.com']
 
 
 # Application definition
@@ -138,5 +139,3 @@ if 'DATABASE_URL' in os.environ:
         conn_max_age=600,
         ssl_require=True
     )
-    # 允许 Heroku 的域名访问
-    ALLOWED_HOSTS = ['*']
