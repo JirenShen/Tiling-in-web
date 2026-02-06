@@ -16,26 +16,45 @@
         .color-swatch.active { border-color: #333; transform: scale(1.1); }
 
         /* 2. 编辑器 (大瓦片) */
+        /* 2. 编辑器 (大瓦片) - 使用 clip-path */
         .editor-box { display: flex; flex-direction: column; align-items: center; }
         .large-tile {
             width: 150px; height: 150px; position: relative; margin: 20px 0;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            background: white; /* 背景色 */
         }
-        /* 三角形绘制 - 可点击区域 */
-        .quadrant { position: absolute; width: 0; height: 0; border-style: solid; cursor: crosshair; }
         
+        /* 通用三角形样式 */
+        .quadrant { 
+            position: absolute; 
+            width: 100%; height: 100%; 
+            top: 0; left: 0;
+            cursor: pointer; 
+            transition: filter 0.2s;
+        }
+        .quadrant:hover { filter: brightness(0.9); z-index: 10; }
+        
+        /* 使用 clip-path 精确裁剪点击区域 */
         /* 北 (Top) */
-        .q-n { top: 0; left: 0; border-width: 75px 75px 0 75px; border-color: #ddd transparent transparent transparent; }
-        .q-n:hover { filter: brightness(0.9); }
+        .q-n { 
+            clip-path: polygon(0 0, 100% 0, 50% 50%); 
+            background-color: #ddd; /* 默认颜色 */
+        }
         /* 南 (Bottom) */
-        .q-s { bottom: 0; left: 0; border-width: 0 75px 75px 75px; border-color: transparent transparent #ddd transparent; }
+        .q-s { 
+            clip-path: polygon(0 100%, 100% 100%, 50% 50%); 
+            background-color: #ddd;
+        }
         /* 东 (Right) */
-        .q-e { top: 0; right: 0; border-width: 75px 75px 75px 0; border-color: transparent #ddd transparent transparent; }
+        .q-e { 
+            clip-path: polygon(100% 0, 100% 100%, 50% 50%); 
+            background-color: #ddd;
+        }
         /* 西 (Left) */
-        .q-w { top: 0; left: 0; border-width: 75px 0 75px 75px; border-color: transparent transparent transparent #ddd; }
-
-        button { padding: 10px 20px; background: #333; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; }
-        button:hover { background: #555; }
+        .q-w { 
+            clip-path: polygon(0 0, 0 100%, 50% 50%); 
+            background-color: #ddd;
+        }
 
         /* 3. 状态指示灯 */
         .indicator-box { 
@@ -63,7 +82,12 @@
 <body>
 
     <h1>Tileset Designer</h1>
-    <p>Design tiles to tile a <b>10x10</b> square.</p>
+    <div style="position: fixed; bottom: 20px; right: 20px;">
+    <button onclick="goToPlay()" style="padding: 15px 30px; font-size: 18px; background: #28a745; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+        ▶ Play / Test Manually
+    </button>
+</div>
+    <p><b>Design tiles to tile a square</b>.</p>
 
     <div id="statusIndicator" class="indicator-box">
         Not enough tiles / Cannot tile 10x10
@@ -99,10 +123,7 @@
 
 <script>
     const el = document.getElementById('colors-data');
-  console.log("colors-data tag:", el);
-  console.log("colors-data textContent:", el?.textContent);
-  const parsed = JSON.parse(el?.textContent ?? 'null');
-  console.log("parsed typeof:", typeof parsed, "parsed:", parsed, "isArray:", Array.isArray(parsed));
+  
 
 const colors = JSON.parse(document.getElementById('colors-data').textContent);
 
@@ -144,18 +165,15 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
   }
 
   function updateEditorVisuals() {
-    const getHex = (id) => (colors.find(c => c.id === id)?.hex) || '#cccccc';
-
-    const n = document.getElementById('edit-n');
-    const e = document.getElementById('edit-e');
-    const s = document.getElementById('edit-s');
-    const w = document.getElementById('edit-w');
-
-    if (n) n.style.borderTopColor = getHex(currentDraft.n);
-    if (e) e.style.borderRightColor = getHex(currentDraft.e);
-    if (s) s.style.borderBottomColor = getHex(currentDraft.s);
-    if (w) w.style.borderLeftColor = getHex(currentDraft.w);
-  }
+            // 根据 ID 找 Hex
+            const getHex = (id) => colors.find(c => c.id === id).hex;
+            
+            // 更新四个三角形的背景颜色 (background-color)
+            document.getElementById('edit-n').style.backgroundColor = getHex(currentDraft.n);
+            document.getElementById('edit-e').style.backgroundColor = getHex(currentDraft.e);
+            document.getElementById('edit-s').style.backgroundColor = getHex(currentDraft.s);
+            document.getElementById('edit-w').style.backgroundColor = getHex(currentDraft.w);
+        }
 
   function addTile() {
     myTileset.push({ ...currentDraft });
@@ -207,7 +225,7 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     indicator.className = 'indicator-box';
 
     try {
-      const response = await fetch('/visualizer/api/check/', {
+      const response = await fetch('api/check/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -251,6 +269,17 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
 
   // 5) Init after DOM is ready
   document.addEventListener('DOMContentLoaded', init);
+  function goToPlay() {
+    if (myTileset.length === 0) {
+        alert("Please create at least one tile first!");
+        return;
+    }
+    // 1. 保存当前设计到 LocalStorage
+    localStorage.setItem('myTileset', JSON.stringify(myTileset));
+    
+    // 2. 跳转到 Play 页面
+    window.location.href = '/play/';
+    }
 </script>
 </body>
 </html>

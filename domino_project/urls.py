@@ -19,6 +19,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('visualizer.urls')),
-    path('api/check/', include('visualizer.urls')),
+    path('', include('visualizer.urls')), #let all the urls go to the other urls file用views来处理
 ]

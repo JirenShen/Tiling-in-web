@@ -53,3 +53,16 @@ def check_tileset(request):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False})
+
+def play(request):
+    """渲染游戏页面"""
+    # 颜色定义必须和 creator 页面一致，所以直接复制过来
+    colors = [
+        {'id': 0, 'hex': '#dddddd', 'name': 'Gray'},
+        {'id': 1, 'hex': '#ff6b6b', 'name': 'Red'},
+        {'id': 2, 'hex': '#4ecdc4', 'name': 'Teal'},
+        {'id': 3, 'hex': '#ffe66d', 'name': 'Yellow'},
+        {'id': 4, 'hex': '#1a535c', 'name': 'Dark Blue'},
+        {'id': 5, 'hex': '#ff9f1c', 'name': 'Orange'},
+    ]
+    return render(request, 'visualizer/play.html', {'colors': colors})

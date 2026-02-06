@@ -4,5 +4,7 @@ from . import views
 
 urlpatterns = [
     path('', views.creator, name='creator'),               # 原来的页面
+    path('play/', views.play, name='play'),
     path('api/check/', views.check_tileset, name='check_api'), # API 接口
+    
 ]

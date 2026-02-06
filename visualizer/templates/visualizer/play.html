@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Play Tiling</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        
+        /* 顶部控制栏 */
+        .controls { 
+            background: white; padding: 15px 30px; border-radius: 8px; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; gap: 20px; align-items: center; margin-bottom: 30px;
+        }
+        select, button { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ddd; }
+        button { background: #333; color: white; border: none; cursor: pointer; }
+        button:hover { background: #555; }
+        .back-btn { background: #666; }
+
+        .game-container { display: flex; gap: 40px; align-items: flex-start; }
+
+        /* 左侧：瓦片库 */
+        .palette-box { background: white; padding: 15px; border-radius: 8px; min-width: 150px; }
+        .palette-grid { display: grid; grid-template-columns: repeat(2, 60px); gap: 10px; }
+
+        /* 右侧：游戏网格 */
+        .board { display: grid; gap: 2px; background: #999; border: 5px solid #333; }
+        
+        /* 瓦片样式 */
+        .tile { width: 60px; height: 60px; position: relative; background: white; cursor: pointer; }
+        .tile-quad { position: absolute; width: 0; height: 0; border-style: solid; }
+        
+        /* 选中状态 */
+        .tile.selected { outline: 3px solid #333; z-index: 10; transform: scale(1.1); transition: 0.1s; }
+        
+        /* 错误标记 */
+        .tile.error::after {
+            content: "!"; font-size: 30px; color: white; font-weight: bold;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-shadow: 0 0 3px black; pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Tiling Playground</h1>
+
+    <div class="controls">
+        <button class="back-btn" onclick="window.history.back()">← Back to Editor</button>
+        
+        <label>Size:</label>
+        <select id="gridSize" onchange="initGame()">
+            <option value="3">3 x 3</option>
+            <option value="4" selected>4 x 4</option>
+            <option value="5">5 x 5</option>
+            <option value="6">6 x 6</option>
+            <option value="7">7 x 7</option>
+            <option value="8">8 x 8</option>
+            <option value="9">9 x 9</option>
+            <option value="10">10 x 10</option>
+        </select>
+        
+        <button onclick="initGame()">Restart / Clear</button>
+        <span id="statusText" style="font-weight: bold; margin-left: 10px;"></span>
+    </div>
+
+    <div class="game-container">
+        <div class="palette-box">
+            <h3>Select Tile:</h3>
+            <div id="palette" class="palette-grid"></div>
+        </div>
+
+        <div id="board" class="board"></div>
+    </div>
+
+    {{ colors|json_script:"colors-data" }}
+    <script>
+        // 接收后端传来的颜色定义 (保持一致性)
+        let colors = JSON.parse(document.getElementById("colors-data").textContent);
+       
+        let myTileset = [];
+        let selectedTileIndex = null;
+        let gridState = []; // 存储当前网格里的 tile 数据
+        let N = 4;
+
+        // 初始化
+        function init() {
+            // 1. 从 LocalStorage 读取之前设计的 Tileset
+            const stored = localStorage.getItem('myTileset');
+            if (stored) {
+                myTileset = JSON.parse(stored);
+            } else {
+                alert("No tileset found! Please create one in the editor first.");
+            }
+            
+            renderPalette();
+            initGame();
+        }
+
+        // 渲染左侧备选区
+        function renderPalette() {
+            const p = document.getElementById('palette');
+            p.innerHTML = '';
+            myTileset.forEach((tile, idx) => {
+                const el = document.createElement('div');
+                el.className = 'tile';
+                el.innerHTML = renderTileHTML(tile);
+                el.onclick = () => {
+                    selectedTileIndex = idx;
+                    document.querySelectorAll('.palette-grid .tile').forEach(t => t.classList.remove('selected'));
+                    el.classList.add('selected');
+                };
+                p.appendChild(el);
+            });
+        }
+
+        // 初始化游戏网格
+        function initGame() {
+            N = parseInt(document.getElementById('gridSize').value);
+            const board = document.getElementById('board');
+            board.style.gridTemplateColumns = `repeat(${N}, 60px)`;
+            board.innerHTML = '';
+            
+            gridState = new Array(N * N).fill(null);
+            document.getElementById('statusText').innerText = "";
+
+            for (let i = 0; i < N * N; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'tile';
+                cell.onclick = () => placeTile(i);
+                // 空格子样式
+                cell.style.background = '#eee'; 
+                board.appendChild(cell);
+            }
+        }
+
+        // 放置瓦片
+        function placeTile(index) {
+            if (selectedTileIndex === null) return;
+            
+            const tileData = myTileset[selectedTileIndex];
+            gridState[index] = tileData;
+            
+            const cell = document.getElementById('board').children[index];
+            cell.innerHTML = renderTileHTML(tileData);
+            cell.style.background = 'white';
+
+            validateBoard();
+        }
+
+        // 验证逻辑 (实时检查)
+        function validateBoard() {
+            const cells = document.getElementById('board').children;
+            let isValid = true;
+            let isFull = true;
+
+            // 清除旧错误
+            for (let c of cells) c.classList.remove('error');
+
+            for (let i = 0; i < N * N; i++) {
+                const tile = gridState[i];
+                if (!tile) {
+                    isFull = false; 
+                    continue;
+                }
+                
+                const row = Math.floor(i / N);
+                const col = i % N;
+
+                // 检查右边
+                if (col < N - 1) {
+                    const right = gridState[i+1];
+                    if (right && tile.e !== right.w) {
+                        cells[i].classList.add('error');
+                        cells[i+1].classList.add('error');
+                        isValid = false;
+                    }
+                }
+                // 检查下边
+                if (row < N - 1) {
+                    const down = gridState[i+N];
+                    if (down && tile.s !== down.n) {
+                        cells[i].classList.add('error');
+                        cells[i+N].classList.add('error');
+                        isValid = false;
+                    }
+                }
+            }
+
+            const status = document.getElementById('statusText');
+            if (!isValid) {
+                status.innerText = "Mismatch detected!";
+                status.style.color = "red";
+            } else if (isFull) {
+                status.innerText = "Success! Grid Completed.";
+                status.style.color = "green";
+            } else {
+                status.innerText = "";
+            }
+        }
+
+        // 辅助：生成瓦片 HTML (CSS Border 技巧)
+        function renderTileHTML(tile) {
+            const getHex = (id) => colors.find(c => c.id === id).hex;
+            return `
+                <div class="tile-quad" style="top:0;left:0; border-width:30px 30px 0 30px; border-color: ${getHex(tile.n)} transparent transparent transparent;"></div>
+                <div class="tile-quad" style="top:0;right:0; border-width:30px 30px 30px 0; border-color: transparent ${getHex(tile.e)} transparent transparent;"></div>
+                <div class="tile-quad" style="bottom:0;left:0; border-width:0 30px 30px 30px; border-color: transparent transparent ${getHex(tile.s)} transparent;"></div>
+                <div class="tile-quad" style="top:0;left:0; border-width:30px 0 30px 30px; border-color: transparent transparent transparent ${getHex(tile.w)};"></div>
+            `;
+        }
+
+        init();
+    </script>
+</body>
+</html>
