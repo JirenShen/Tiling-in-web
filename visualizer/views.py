@@ -3,6 +3,16 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from .solver import solve_tiling
 import json
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def check_tileset(request):
+    if request.method == "POST":
+        data = json.loads(request.body or "{}")
+        tiles = data.get("tiles", [])
+        result = solve_tiling(10, tiles)
+        return JsonResponse({"success": True, "can_tile": result})
+    return JsonResponse({"success": False}, status=405)
 
 def index(request):
     # 定义一个简单的 Tileset
