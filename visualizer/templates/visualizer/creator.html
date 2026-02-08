@@ -227,13 +227,18 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     try {
       const response = await fetch('api/check/', {
         method: 'POST',
+        credentials: 'same-origin',  
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': getCookie('csrftoken')
         },
         body: JSON.stringify({ tiles: myTileset })
       });
-
+      if (!response.ok) {
+  const text = await response.text();
+  console.error("API error:", response.status, text);
+  throw new Error(`API ${response.status}`);
+}
       const data = await response.json();
       if (data.can_tile) {
         indicator.className = 'indicator-box status-success';
