@@ -6,6 +6,7 @@ import json
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
+
 @ensure_csrf_cookie
 def creator(request):
     colors = [

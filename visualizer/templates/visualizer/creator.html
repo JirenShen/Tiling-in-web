@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Tileset Creator</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23333'/%3E%3Ccircle cx='5' cy='5' r='1.5' fill='white'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='white'/%3E%3C/svg%3E">
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
         
@@ -225,7 +226,7 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     indicator.className = 'indicator-box';
 
     try {
-      const response = await fetch('api/check/', {
+      const response = await fetch('/api/check/', {
         method: 'POST',
         credentials: 'same-origin',  
         headers: {
@@ -235,10 +236,14 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
         body: JSON.stringify({ tiles: myTileset })
       });
       if (!response.ok) {
-  const text = await response.text();
-  console.error("API error:", response.status, text);
-  throw new Error(`API ${response.status}`);
-}
+        const text = await response.text();
+        console.error("API error:", response.status, text);
+        indicator.className = 'indicator-box status-fail';
+        indicator.innerText = response.status === 403
+          ? "Request blocked (403). Refresh page and try again."
+          : `API error: ${response.status}`;
+        return;
+      }
       const data = await response.json();
       if (data.can_tile) {
         indicator.className = 'indicator-box status-success';
@@ -249,6 +254,8 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
       }
     } catch (error) {
       console.error("Error:", error);
+      indicator.className = 'indicator-box status-fail';
+      indicator.innerText = "Request failed. Please retry.";
     }
   }
 
