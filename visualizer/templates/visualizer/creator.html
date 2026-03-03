@@ -67,14 +67,14 @@
 
         /* 4. 已添加列表 */
         .tile-list { display: grid; grid-template-columns: repeat(3, 60px); gap: 10px; margin-top: 15px; }
-        .mini-tile-wrapper { position: relative; }
+        .mini-tile-wrapper { position: relative; cursor: pointer; }
         .mini-tile { width: 60px; height: 60px; position: relative; }
         .mini-quad { position: absolute; width: 0; height: 0; border-style: solid; border-width: 30px; }
         
         .delete-btn { 
             position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; 
             background: red; color: white; border-radius: 50%; text-align: center; 
-            line-height: 20px; font-size: 12px; cursor: pointer; display: none; 
+            line-height: 20px; font-size: 12px; display: none; pointer-events: none;
         }
         .mini-tile-wrapper:hover .delete-btn { display: block; }
 
@@ -84,8 +84,8 @@
 
     <h1>Tileset Designer</h1>
     <div style="position: fixed; bottom: 20px; right: 20px;">
-    <button onclick="goToPlay()" style="padding: 15px 30px; font-size: 18px; background: #28a745; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-        ▶ Play / Test Manually
+    <button id="playBtn" onclick="goToPlay()" style="padding: 15px 30px; font-size: 18px; background: #28a745; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+        ▶ Play with Default Tile Set
     </button>
 </div>
     <p><b>Design tiles to tile a square</b>.</p>
@@ -121,12 +121,11 @@
 
 
   {{ colors|json_script:"colors-data" }}
+  {{ default_tileset|json_script:"default-tileset-data" }}
 
 <script>
-    const el = document.getElementById('colors-data');
-  
-
 const colors = JSON.parse(document.getElementById('colors-data').textContent);
+const defaultTileset = JSON.parse(document.getElementById('default-tileset-data').textContent);
 
   // 1) Global state (must exist BEFORE any click)
   let currentDraft = { n: 0, e: 0, s: 0, w: 0 };
@@ -138,6 +137,18 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
   let currentColorId  = defaultColor.id;
 
   // 3) Functions
+  function getActiveTileset() {
+    return myTileset.length > 0 ? myTileset : defaultTileset;
+  }
+
+  function updatePlayButtonLabel() {
+    const playBtn = document.getElementById('playBtn');
+    if (!playBtn) return;
+    playBtn.innerText = myTileset.length === 0
+      ? "▶ Play with Default Tile Set"
+      : "▶ Play / Test Manually";
+  }
+
   function init() {
     const p = document.getElementById('palette');
     if (!p) return;
@@ -158,6 +169,8 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     });
 
     updateEditorVisuals();
+    updatePlayButtonLabel();
+    checkFeasibility();
   }
 
   function paint(dir) {
@@ -179,12 +192,14 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
   function addTile() {
     myTileset.push({ ...currentDraft });
     renderList();
+    updatePlayButtonLabel();
     checkFeasibility();
   }
 
   function removeTile(index) {
     myTileset.splice(index, 1);
     renderList();
+    updatePlayButtonLabel();
     checkFeasibility();
   }
 
@@ -198,6 +213,8 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     myTileset.forEach((tile, index) => {
       const wrapper = document.createElement('div');
       wrapper.className = 'mini-tile-wrapper';
+      wrapper.title = "Click to remove this tile";
+      wrapper.onclick = () => removeTile(index);
 
       wrapper.innerHTML = `
         <div class="mini-tile">
@@ -206,7 +223,7 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
           <div class="mini-quad" style="bottom:0;left:0; border-width:0 30px 30px 30px; border-color: transparent transparent ${getHex(tile.s)} transparent;"></div>
           <div class="mini-quad" style="top:0;left:0; border-width:30px 0 30px 30px; border-color: transparent transparent transparent ${getHex(tile.w)};"></div>
         </div>
-        <div class="delete-btn" onclick="removeTile(${index})">×</div>
+        <div class="delete-btn">×</div>
       `;
       container.appendChild(wrapper);
     });
@@ -216,11 +233,7 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
     const indicator = document.getElementById('statusIndicator');
     if (!indicator) return;
 
-    if (myTileset.length === 0) {
-      indicator.className = 'indicator-box';
-      indicator.innerText = "Add some tiles to start checking...";
-      return;
-    }
+    const tilesToCheck = getActiveTileset();
 
     indicator.innerText = "Checking...";
     indicator.className = 'indicator-box';
@@ -233,7 +246,7 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
           'Content-Type': 'application/json',
           'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify({ tiles: myTileset })
+        body: JSON.stringify({ tiles: tilesToCheck })
       });
       if (!response.ok) {
         const text = await response.text();
@@ -247,10 +260,14 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
       const data = await response.json();
       if (data.can_tile) {
         indicator.className = 'indicator-box status-success';
-        indicator.innerText = "SUCCESS! Can tile 10x10 area.";
+        indicator.innerText = myTileset.length === 0
+          ? "Default tileset can tile 10x10."
+          : "SUCCESS! Can tile 10x10 area.";
       } else {
         indicator.className = 'indicator-box status-fail';
-        indicator.innerText = "Cannot tile 10x10 area yet.";
+        indicator.innerText = myTileset.length === 0
+          ? "Default tileset check failed."
+          : "Cannot tile 10x10 area yet.";
       }
     } catch (error) {
       console.error("Error:", error);
@@ -282,12 +299,8 @@ const colors = JSON.parse(document.getElementById('colors-data').textContent);
   // 5) Init after DOM is ready
   document.addEventListener('DOMContentLoaded', init);
   function goToPlay() {
-    if (myTileset.length === 0) {
-        alert("Please create at least one tile first!");
-        return;
-    }
-    // 1. 保存当前设计到 LocalStorage
-    localStorage.setItem('myTileset', JSON.stringify(myTileset));
+    // 1. 保存当前使用的 tileset 到 LocalStorage（空自定义时用默认）
+    localStorage.setItem('myTileset', JSON.stringify(getActiveTileset()));
     
     // 2. 跳转到 Play 页面
     window.location.href = '/play/';

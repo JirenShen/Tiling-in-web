@@ -6,6 +6,13 @@ import json
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
+DEFAULT_TILESET = [
+    {'n': 1, 'e': 2, 's': 1, 'w': 2},
+    {'n': 2, 'e': 1, 's': 2, 'w': 1},
+    {'n': 1, 'e': 1, 's': 2, 'w': 2},
+    {'n': 2, 'e': 2, 's': 1, 'w': 1},
+]
+
 
 @ensure_csrf_cookie
 def creator(request):
@@ -17,7 +24,11 @@ def creator(request):
         {'id': 4, 'hex': '#1a535c', 'name': 'Dark Blue'},
         {'id': 5, 'hex': '#ff9f1c', 'name': 'Orange'},
     ]
-    return render(request, 'visualizer/creator.html', {'colors': colors})
+    return render(
+        request,
+        'visualizer/creator.html',
+        {'colors': colors, 'default_tileset': DEFAULT_TILESET}
+    )
 
 @require_POST
 def check_tileset(request):
@@ -38,4 +49,8 @@ def play(request):
         {'id': 4, 'hex': '#1a535c', 'name': 'Dark Blue'},
         {'id': 5, 'hex': '#ff9f1c', 'name': 'Orange'},
     ]
-    return render(request, 'visualizer/play.html', {'colors': colors})
+    return render(
+        request,
+        'visualizer/play.html',
+        {'colors': colors, 'default_tileset': DEFAULT_TILESET}
+    )

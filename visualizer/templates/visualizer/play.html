@@ -75,9 +75,11 @@
     </div>
 
     {{ colors|json_script:"colors-data" }}
+    {{ default_tileset|json_script:"default-tileset-data" }}
     <script>
         // 接收后端传来的颜色定义 (保持一致性)
         let colors = JSON.parse(document.getElementById("colors-data").textContent);
+        let defaultTileset = JSON.parse(document.getElementById("default-tileset-data").textContent);
        
         let myTileset = [];
         let selectedTileIndex = null;
@@ -89,9 +91,14 @@
             // 1. 从 LocalStorage 读取之前设计的 Tileset
             const stored = localStorage.getItem('myTileset');
             if (stored) {
-                myTileset = JSON.parse(stored);
+                try {
+                    const parsed = JSON.parse(stored);
+                    myTileset = Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultTileset;
+                } catch (e) {
+                    myTileset = defaultTileset;
+                }
             } else {
-                alert("No tileset found! Please create one in the editor first.");
+                myTileset = defaultTileset;
             }
             
             renderPalette();
