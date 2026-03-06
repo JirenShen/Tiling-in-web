@@ -2,17 +2,29 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Tileset Creator</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23333'/%3E%3Ccircle cx='5' cy='5' r='1.5' fill='white'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='white'/%3E%3C/svg%3E">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            padding-bottom: 96px;
+        }
+        h1, p { text-align: center; }
         
         /* 布局 */
-        .main-container { display: flex; gap: 50px; margin-top: 30px; }
-        .section { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .main-container { width: min(100%, 980px); display: flex; gap: 24px; margin-top: 24px; align-items: flex-start; justify-content: center; }
+        .section { width: min(100%, 360px); background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
 
         /* 1. 颜色选择器 */
-        .color-palette { display: flex; gap: 10px; margin-bottom: 15px; }
+        .color-palette { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; justify-content: center; }
         .color-swatch { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.2s; }
         .color-swatch.active { border-color: #333; transform: scale(1.1); }
 
@@ -20,7 +32,7 @@
         /* 2. 编辑器 (大瓦片) - 使用 clip-path */
         .editor-box { display: flex; flex-direction: column; align-items: center; }
         .large-tile {
-            width: 150px; height: 150px; position: relative; margin: 20px 0;
+            width: clamp(120px, 42vw, 150px); height: clamp(120px, 42vw, 150px); position: relative; margin: 20px 0;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
             background: white; /* 背景色 */
         }
@@ -59,7 +71,7 @@
 
         /* 3. 状态指示灯 */
         .indicator-box { 
-            width: 300px; padding: 20px; text-align: center; margin-top: 20px; 
+            width: min(100%, 340px); padding: 20px; text-align: center; margin-top: 20px;
             background: #eee; border-radius: 8px; font-weight: bold; color: #555; transition: 0.3s;
         }
         .status-success { background-color: #4ecdc4; color: white; } /* 绿色 */
@@ -78,13 +90,38 @@
         }
         .mini-tile-wrapper:hover .delete-btn { display: block; }
 
+        .play-cta { position: fixed; right: 20px; bottom: 20px; z-index: 20; }
+        .play-btn {
+            padding: 15px 30px;
+            font-size: 18px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+
+        @media (max-width: 900px) {
+            .main-container { flex-direction: column; align-items: center; }
+            .section { width: min(100%, 480px); }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 14px; padding-bottom: 92px; }
+            .section { padding: 14px; border-radius: 10px; }
+            .tile-list { grid-template-columns: repeat(3, 60px); gap: 8px; justify-content: center; }
+            .play-cta { left: 12px; right: 12px; bottom: 12px; }
+            .play-btn { width: 100%; font-size: 16px; padding: 13px 16px; }
+        }
+
     </style>
 </head>
 <body>
 
     <h1>Tileset Designer</h1>
-    <div style="position: fixed; bottom: 20px; right: 20px;">
-    <button id="playBtn" onclick="goToPlay()" style="padding: 15px 30px; font-size: 18px; background: #28a745; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+    <div class="play-cta">
+    <button id="playBtn" class="play-btn" onclick="goToPlay()">
         ▶ Play with Default Tile Set
     </button>
 </div>

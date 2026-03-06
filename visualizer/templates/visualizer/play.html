@@ -2,32 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Play Tiling</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23333'/%3E%3Ccircle cx='5' cy='5' r='1.5' fill='white'/%3E%3Ccircle cx='11' cy='11' r='1.5' fill='white'/%3E%3C/svg%3E">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        :root { --board-tile-size: 60px; --palette-tile-size: 60px; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #f4f7f6;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 { margin: 8px 0 16px; text-align: center; }
         
         /* 顶部控制栏 */
         .controls { 
-            background: white; padding: 15px 30px; border-radius: 8px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; gap: 20px; align-items: center; margin-bottom: 30px;
+            width: min(100%, 980px);
+            background: white;
+            padding: 14px 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
         }
         select, button { padding: 8px 12px; font-size: 16px; border-radius: 4px; border: 1px solid #ddd; }
         button { background: #333; color: white; border: none; cursor: pointer; }
         button:hover { background: #555; }
         .back-btn { background: #666; }
 
-        .game-container { display: flex; gap: 40px; align-items: flex-start; }
+        .game-container {
+            width: min(100%, 1040px);
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            justify-content: center;
+        }
 
         /* 左侧：瓦片库 */
-        .palette-box { background: white; padding: 15px; border-radius: 8px; min-width: 150px; }
-        .palette-grid { display: grid; grid-template-columns: repeat(2, 60px); gap: 10px; }
+        .palette-box { background: white; padding: 12px; border-radius: 8px; min-width: 150px; }
+        .palette-box h3 { margin: 2px 0 10px; text-align: center; }
+        .palette-grid { display: grid; grid-template-columns: repeat(2, var(--palette-tile-size)); gap: 8px; justify-content: center; }
+        .board-scroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
         /* 右侧：游戏网格 */
-        .board { display: grid; gap: 2px; background: #999; border: 5px solid #333; }
+        .board { display: grid; gap: 2px; background: #999; border: 4px solid #333; width: fit-content; }
         
         /* 瓦片样式 */
-        .tile { width: 60px; height: 60px; position: relative; background: white; cursor: pointer; }
+        .tile { position: relative; background: white; cursor: pointer; }
+        .palette-tile { width: var(--palette-tile-size); height: var(--palette-tile-size); }
+        .board-tile { width: var(--board-tile-size); height: var(--board-tile-size); }
         .tile-quad { position: absolute; width: 0; height: 0; border-style: solid; }
         
         /* 选中状态 */
@@ -38,6 +69,19 @@
             content: "!"; font-size: 30px; color: white; font-weight: bold;
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             text-shadow: 0 0 3px black; pointer-events: none;
+        }
+
+        @media (max-width: 900px) {
+            .game-container { flex-direction: column; align-items: center; }
+            .palette-box { width: min(100%, 520px); }
+        }
+
+        @media (max-width: 640px) {
+            body { padding: 12px; }
+            .controls { justify-content: flex-start; gap: 10px; padding: 12px; margin-bottom: 14px; }
+            select, button { font-size: 14px; padding: 7px 10px; }
+            .tile.selected { transform: scale(1.05); }
+            .board { border-width: 3px; }
         }
     </style>
 </head>
@@ -71,7 +115,9 @@
             <div id="palette" class="palette-grid"></div>
         </div>
 
-        <div id="board" class="board"></div>
+        <div class="board-scroll">
+            <div id="board" class="board"></div>
+        </div>
     </div>
 
     {{ colors|json_script:"colors-data" }}
@@ -85,6 +131,45 @@
         let selectedTileIndex = null;
         let gridState = []; // 存储当前网格里的 tile 数据
         let N = 4;
+        let boardTileSize = 60;
+        let paletteTileSize = 60;
+
+        function computeBoardTileSize() {
+            if (window.innerWidth > 768) return 60;
+            const available = Math.max(260, window.innerWidth - 26);
+            let size = Math.floor((available - (N - 1) * 2 - 8) / N);
+            size = Math.max(24, Math.min(44, size));
+            if (size % 2 !== 0) size -= 1;
+            return size;
+        }
+
+        function computePaletteTileSize() {
+            return window.innerWidth > 768 ? 60 : 44;
+        }
+
+        function applyTileSizes() {
+            boardTileSize = computeBoardTileSize();
+            paletteTileSize = computePaletteTileSize();
+            document.documentElement.style.setProperty('--board-tile-size', `${boardTileSize}px`);
+            document.documentElement.style.setProperty('--palette-tile-size', `${paletteTileSize}px`);
+        }
+
+        function rerenderBoardCells() {
+            const board = document.getElementById('board');
+            if (!board || board.children.length === 0) return;
+            board.style.gridTemplateColumns = `repeat(${N}, ${boardTileSize}px)`;
+            for (let i = 0; i < N * N; i++) {
+                const cell = board.children[i];
+                const tile = gridState[i];
+                if (!tile) {
+                    cell.innerHTML = '';
+                    cell.style.background = '#eee';
+                    continue;
+                }
+                cell.innerHTML = renderTileHTML(tile, boardTileSize);
+                cell.style.background = 'white';
+            }
+        }
 
         // 初始化
         function init() {
@@ -100,9 +185,20 @@
             } else {
                 myTileset = defaultTileset;
             }
-            
+
+            if (myTileset.length > 0) selectedTileIndex = 0;
+            applyTileSizes();
             renderPalette();
             initGame();
+            window.addEventListener('resize', () => {
+                const oldBoardSize = boardTileSize;
+                const oldPaletteSize = paletteTileSize;
+                applyTileSizes();
+                if (oldBoardSize !== boardTileSize || oldPaletteSize !== paletteTileSize) {
+                    renderPalette();
+                    rerenderBoardCells();
+                }
+            });
         }
 
         // 渲染左侧备选区
@@ -111,8 +207,9 @@
             p.innerHTML = '';
             myTileset.forEach((tile, idx) => {
                 const el = document.createElement('div');
-                el.className = 'tile';
-                el.innerHTML = renderTileHTML(tile);
+                el.className = 'tile palette-tile';
+                if (idx === selectedTileIndex) el.classList.add('selected');
+                el.innerHTML = renderTileHTML(tile, paletteTileSize);
                 el.onclick = () => {
                     selectedTileIndex = idx;
                     document.querySelectorAll('.palette-grid .tile').forEach(t => t.classList.remove('selected'));
@@ -125,8 +222,9 @@
         // 初始化游戏网格
         function initGame() {
             N = parseInt(document.getElementById('gridSize').value);
+            applyTileSizes();
             const board = document.getElementById('board');
-            board.style.gridTemplateColumns = `repeat(${N}, 60px)`;
+            board.style.gridTemplateColumns = `repeat(${N}, ${boardTileSize}px)`;
             board.innerHTML = '';
             
             gridState = new Array(N * N).fill(null);
@@ -134,7 +232,7 @@
 
             for (let i = 0; i < N * N; i++) {
                 const cell = document.createElement('div');
-                cell.className = 'tile';
+                cell.className = 'tile board-tile';
                 cell.onclick = () => placeTile(i);
                 // 空格子样式
                 cell.style.background = '#eee'; 
@@ -150,7 +248,7 @@
             gridState[index] = tileData;
             
             const cell = document.getElementById('board').children[index];
-            cell.innerHTML = renderTileHTML(tileData);
+            cell.innerHTML = renderTileHTML(tileData, boardTileSize);
             cell.style.background = 'white';
 
             validateBoard();
@@ -208,13 +306,14 @@
         }
 
         // 辅助：生成瓦片 HTML (CSS Border 技巧)
-        function renderTileHTML(tile) {
+        function renderTileHTML(tile, size) {
             const getHex = (id) => colors.find(c => c.id === id).hex;
+            const half = size / 2;
             return `
-                <div class="tile-quad" style="top:0;left:0; border-width:30px 30px 0 30px; border-color: ${getHex(tile.n)} transparent transparent transparent;"></div>
-                <div class="tile-quad" style="top:0;right:0; border-width:30px 30px 30px 0; border-color: transparent ${getHex(tile.e)} transparent transparent;"></div>
-                <div class="tile-quad" style="bottom:0;left:0; border-width:0 30px 30px 30px; border-color: transparent transparent ${getHex(tile.s)} transparent;"></div>
-                <div class="tile-quad" style="top:0;left:0; border-width:30px 0 30px 30px; border-color: transparent transparent transparent ${getHex(tile.w)};"></div>
+                <div class="tile-quad" style="top:0;left:0; border-width:${half}px ${half}px 0 ${half}px; border-color: ${getHex(tile.n)} transparent transparent transparent;"></div>
+                <div class="tile-quad" style="top:0;right:0; border-width:${half}px ${half}px ${half}px 0; border-color: transparent ${getHex(tile.e)} transparent transparent;"></div>
+                <div class="tile-quad" style="bottom:0;left:0; border-width:0 ${half}px ${half}px ${half}px; border-color: transparent transparent ${getHex(tile.s)} transparent;"></div>
+                <div class="tile-quad" style="top:0;left:0; border-width:${half}px 0 ${half}px ${half}px; border-color: transparent transparent transparent ${getHex(tile.w)};"></div>
             `;
         }
 
